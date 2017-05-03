@@ -17,12 +17,10 @@ app.get('/', function(req, res) {
   const params = queryString.parse(paramsRaw);
   console.log({ params });
 
+  const { url, wait = 'html', selector = 'html' } = params;
   const defaultProperties = {
     params,
-    timestamp: Date.now(),
   };
-
-  const { url, wait } = params;
 
   if (!url) {
     const response = Object.assign({}, defaultProperties, {
@@ -36,19 +34,39 @@ app.get('/', function(req, res) {
 
   if (url) {
     nightmare
-      .goto(url)
-      .wait(isNaN(wait) ? wait : Number(wait))
-      .evaluate(function() {
-        return document.querySelector('html').innerHTML;
+      .on('did-start-loading', () => {
+        defaultProperties.didStartLoading = Date.now();
       })
+      .on('did-stop-loading', () => {
+        defaultProperties.didStopLoading = Date.now();
+      })
+      .on('did-get-response-details', () => {
+        defaultProperties.didGetResponseDetails = Date.now();
+      })
+      .on('dom-ready', () => {
+        defaultProperties.domReady = Date.now();
+      })
+      .goto(url)
+      // wait in ms or wait when css selector is ready
+      .wait(isNaN(wait) ? wait : Number(wait))
+      .evaluate(
+        _selector => {
+          // grab contents using selector provided
+          return document.querySelector(_selector).outerHTML;
+        },
+        selector
+      )
       .end()
-      .then(function(html) {
+      .then(html => {
         const response = Object.assign({}, defaultProperties, {
+          processEnd: Date.now(),
+          timezoneOffset: new Date().getTimezoneOffset(),
           html,
         });
         res.json(response);
       })
-      .catch(function(error) {
+      .catch(error => {
+        console.error({ error });
         const response = Object.assign({}, defaultProperties, {
           error,
         });

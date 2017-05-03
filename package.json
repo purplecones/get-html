@@ -8,6 +8,6 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "deploy": "now"
+    "deploy": "now --docker"
   }
 }
